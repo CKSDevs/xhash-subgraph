@@ -8,7 +8,7 @@ dataSources:
     name: Lottery
     network: bsc
     source:
-      address: '0xf36f677c507B6775Ab0dDFA36a146FC252048fbBc'
+      address: '0xf36f677c507B6775Ab0dDFA36a146FC252048fbB'
       abi: Lottery
       startBlock: 8796011
     mapping:
