@@ -1,5 +1,5 @@
 specVersion: 0.0.2
-description: PancakeSwap Lottery
+description: Xhash Lottery
 repository: https://github.com/pancakeswap
 schema:
   file: ./schema.graphql
@@ -8,7 +8,7 @@ dataSources:
     name: Lottery
     network: bsc
     source:
-      address: '0x5aF6D33DE2ccEC94efb1bDF8f92Bd58085432d2c'
+      address: '0xf36f677c507B6775Ab0dDFA36a146FC252048fbBc'
       abi: Lottery
       startBlock: 8796011
     mapping:
