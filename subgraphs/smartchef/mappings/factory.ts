@@ -1,8 +1,10 @@
 /* eslint-disable prefer-const */
-import { BigInt } from "@graphprotocol/graph-ts";
-import { Factory, SmartChef, Token } from "../generated/schema";
+import { BigInt, log } from "@graphprotocol/graph-ts";
+import { Factory } from "../generated/schema";
 import { NewSmartChefContract } from "../generated/SmartChefFactory/SmartChefFactory";
-import { fetchTokenDecimals, fetchTokenName, fetchTokenSymbol } from "./utils/erc20";
+import { BLACKLISTED_ADDRESSES, convertTokenToDecimal } from "./utils";
+import { SmartChefInitializable } from "../generated/templates";
+import { getOrCreateToken } from "./utils/erc20";
 import {
   fetchEndBlock,
   fetchRewardPerBlock,
@@ -10,12 +12,13 @@ import {
   fetchStakeToken,
   fetchStartBlock,
   fetchUserLimit,
+  getOrCreateSmartChef,
 } from "./utils/smartchef";
-import { BLACKLISTED_ADDRESSES, convertTokenToDecimal } from "./utils";
 
 let ZERO_BI = BigInt.fromI32(0);
 let ONE_BI = BigInt.fromI32(1);
 let FACTORY_ADDRESS = "0x927158be21fe3d4da7e96931bb27fd5059a8cbc2";
+let FACTORY_V2_ADDRESS = "0xFfF5812C35eC100dF51D5C9842e8cC3fe60f9ad7";
 
 export function handleNewSmartChefContract(event: NewSmartChefContract): void {
   // Do not process some SmartChef smart contract, hiccup.
@@ -32,27 +35,30 @@ export function handleNewSmartChefContract(event: NewSmartChefContract): void {
   factory.totalSmartChef = factory.totalSmartChef.plus(ONE_BI);
   factory.save();
 
-  let stakeTokenAddress = fetchStakeToken(event.params.smartChef);
-  let stakeToken = Token.load(stakeTokenAddress.toHex());
-  if (stakeToken === null) {
-    stakeToken = new Token(stakeTokenAddress.toHex());
-    stakeToken.name = fetchTokenName(stakeTokenAddress);
-    stakeToken.symbol = fetchTokenSymbol(stakeTokenAddress);
-    stakeToken.decimals = fetchTokenDecimals(stakeTokenAddress);
-    stakeToken.save();
+  process(event);
+}
+
+export function handleNewSmartChefContractV2(event: NewSmartChefContract): void {
+  let factory = Factory.load(FACTORY_V2_ADDRESS);
+  if (factory === null) {
+    factory = new Factory(FACTORY_V2_ADDRESS);
+    factory.totalSmartChef = ZERO_BI;
+    factory.save();
   }
+  factory.totalSmartChef = factory.totalSmartChef.plus(ONE_BI);
+  factory.save();
+
+  process(event);
+}
+
+function process(event: NewSmartChefContract): void {
+  let stakeTokenAddress = fetchStakeToken(event.params.smartChef);
+  let stakeToken = getOrCreateToken(stakeTokenAddress);
 
   let earnTokenAddress = fetchRewardToken(event.params.smartChef);
-  let earnToken = Token.load(earnTokenAddress.toHex());
-  if (earnToken === null) {
-    earnToken = new Token(earnTokenAddress.toHex());
-    earnToken.name = fetchTokenName(earnTokenAddress);
-    earnToken.symbol = fetchTokenSymbol(earnTokenAddress);
-    earnToken.decimals = fetchTokenDecimals(earnTokenAddress);
-    earnToken.save();
-  }
+  let earnToken = getOrCreateToken(earnTokenAddress);
 
-  let smartChef = new SmartChef(event.params.smartChef.toHex());
+  let smartChef = getOrCreateSmartChef(event.params.smartChef);
   smartChef.stakeToken = stakeToken.id;
   smartChef.earnToken = earnToken.id;
   smartChef.startBlock = fetchStartBlock(event.params.smartChef);
@@ -67,4 +73,6 @@ export function handleNewSmartChefContract(event: NewSmartChefContract): void {
   smartChef.block = event.block.number;
   smartChef.timestamp = event.block.timestamp;
   smartChef.save();
+  SmartChefInitializable.create(event.params.smartChef);
+  log.info("SmartChef initialized: {}", [smartChef.id]);
 }
